@@ -1,13 +1,23 @@
 import streamlit as st
-from openai import OpenAI
+from openai import APIError, OpenAI, RateLimitError
 import os
 
 st.set_page_config(layout="wide", page_title="OpenRouter chatbot app")
 st.title("OpenRouter chatbot app")
 
-# api_key, base_url = os.environ["API_KEY"], os.environ["BASE_URL"]
-api_key, base_url = st.secrets["API_KEY"], st.secrets["BASE_URL"]
-selected_model = "gemini-3.1-pro-preview"
+# Najpierw próbujemy odczytać sekrety Streamlit, potem zmienne środowiskowe.
+api_key = st.secrets.get("API_KEY", os.getenv("API_KEY", ""))
+base_url = st.secrets.get("BASE_URL", os.getenv("BASE_URL", ""))
+
+available_models = [
+    "gemini-3.1-pro-preview",
+    "gemini-2.5-flash",
+]
+selected_model = st.sidebar.selectbox(
+    "Model",
+    options=available_models,
+    index=0,
+)
 
 if "messages" not in st.session_state:
     st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?."}]
@@ -22,10 +32,42 @@ if prompt := st.chat_input():
     client = OpenAI(api_key=api_key, base_url=base_url)
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.chat_message("user").write(prompt)
-    response = client.chat.completions.create(
-        model=selected_model,
-        messages=st.session_state.messages
-    )
+    models_to_try = [selected_model]
+    if selected_model == "gemini-3.1-pro-preview":
+        models_to_try.append("gemini-2.5-flash")
+
+    response = None
+    used_model = None
+    last_rate_limit_error = None
+
+    for model_name in models_to_try:
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=st.session_state.messages,
+            )
+            used_model = model_name
+            break
+        except RateLimitError as exc:
+            last_rate_limit_error = exc
+            continue
+        except APIError as exc:
+            st.error(f"API error: {exc}")
+            st.stop()
+
+    if response is None:
+        st.error(
+            "Limit zapytań został przekroczony dla wybranego modelu. "
+            "Odczekaj chwilę, zwiększ plan lub zmień model."
+        )
+        if last_rate_limit_error:
+            with st.expander("Szczegóły błędu"):
+                st.text(str(last_rate_limit_error))
+        st.stop()
+
+    if used_model and used_model != selected_model:
+        st.info(f"Automatycznie użyto modelu zapasowego: {used_model}")
+
     msg = response.choices[0].message.content
     st.session_state.messages.append({"role": "assistant", "content": msg})
     st.chat_message("assistant").write(msg)
