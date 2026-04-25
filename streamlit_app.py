@@ -1,6 +1,7 @@
 import streamlit as st
 from openai import APIError, OpenAI, RateLimitError
 import os
+import PyPDF2
 
 st.set_page_config(layout="wide", page_title="OpenRouter chatbot app")
 st.title("OpenRouter chatbot app")
@@ -19,6 +20,31 @@ selected_model = st.sidebar.selectbox(
     options=available_models,
     index=0,
 )
+
+# PDF Upload Section
+st.sidebar.markdown("---")
+st.sidebar.subheader("📄 Wczytaj PDF")
+uploaded_pdf = st.sidebar.file_uploader("Wybierz plik PDF", type="pdf")
+
+pdf_text = None
+if uploaded_pdf is not None:
+    try:
+        pdf_reader = PyPDF2.PdfReader(uploaded_pdf)
+        pdf_text = ""
+        for page in pdf_reader.pages:
+            pdf_text += page.extract_text()
+        
+        st.sidebar.success(f"✓ Wczytano PDF ({len(pdf_reader.pages)} stron)")
+        
+        if st.sidebar.button("➕ Dodaj do konwersacji", key="add_pdf_button"):
+            if "messages" not in st.session_state:
+                st.session_state["messages"] = []
+            
+            pdf_message = f"Wczytałem dokument PDF. Treść dokumentu:\n\n{pdf_text}"
+            st.session_state.messages.append({"role": "user", "content": pdf_message})
+            st.rerun()
+    except Exception as e:
+        st.sidebar.error(f"Błąd przy odczytywaniu PDF: {e}")
 
 if "messages" not in st.session_state:
     st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?."}]
