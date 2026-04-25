@@ -35,14 +35,6 @@ if uploaded_pdf is not None:
             pdf_text += page.extract_text()
         
         st.sidebar.success(f"✓ Wczytano PDF ({len(pdf_reader.pages)} stron)")
-        
-        if st.sidebar.button("➕ Dodaj do konwersacji", key="add_pdf_button"):
-            if "messages" not in st.session_state:
-                st.session_state["messages"] = []
-            
-            pdf_message = f"Wczytałem dokument PDF. Treść dokumentu:\n\n{pdf_text}"
-            st.session_state.messages.append({"role": "user", "content": pdf_message})
-            st.rerun()
     except Exception as e:
         st.sidebar.error(f"Błąd przy odczytywaniu PDF: {e}")
 
@@ -64,8 +56,20 @@ if prompt := st.chat_input():
         models_to_try.append("gemini-3-flash-preview")
         models_to_try.append("gemini-2.5-flash")
 
-    response = None
-    used_model = None
+    
+    # Sprawdzenie czy zapytanie dotyczy dokumentu i jeśli tak, dołączenie jego treści
+    pdf_keywords = ["streszczenie", "treść", "dokument", "pdf", "wyjaśnij", "co mówi", 
+                    "analiza", "podsumowanie", "czytaj", "przeczytaj", "zawartość",
+                    "opisz", "powiedz mi", "co tam", "o czym", "mówi"]
+    
+    user_message = prompt
+    prompt_lower = prompt.lower()
+    
+    if pdf_text and any(keyword in prompt_lower for keyword in pdf_keywords):
+        user_message = f"{prompt}\n\n---\nTreść dokumentu PDF do analizy:\n{pdf_text}"
+    
+    client = OpenAI(api_key=api_key, base_url=base_url)
+    st.session_state.messages.append({"role": "user", "content": user_message
     last_rate_limit_error = None
 
     for model_name in models_to_try:
