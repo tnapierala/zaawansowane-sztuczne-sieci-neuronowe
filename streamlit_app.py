@@ -69,7 +69,7 @@ if prompt := st.chat_input():
         user_message = f"{prompt}\n\n---\nTreść dokumentu PDF do analizy:\n{pdf_text}"
     
     client = OpenAI(api_key=api_key, base_url=base_url)
-    st.session_state.messages.append({"role": "user", "content": user_message
+    st.session_state.messages.append({"role": "user", "content": user_message})
     last_rate_limit_error = None
 
     for model_name in models_to_try:
