@@ -11,6 +11,7 @@ base_url = st.secrets.get("BASE_URL", os.getenv("BASE_URL", ""))
 
 available_models = [
     "gemini-3.1-pro-preview",
+    "gemini-3-flash-preview",
     "gemini-2.5-flash",
 ]
 selected_model = st.sidebar.selectbox(
@@ -34,6 +35,7 @@ if prompt := st.chat_input():
     st.chat_message("user").write(prompt)
     models_to_try = [selected_model]
     if selected_model == "gemini-3.1-pro-preview":
+        models_to_try.append("gemini-3-flash-preview")
         models_to_try.append("gemini-2.5-flash")
 
     response = None
